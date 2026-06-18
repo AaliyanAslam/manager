@@ -7,9 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "manager",
     "userInterfaceStyle": "automatic",
-    "ios": {
-      "icon": "./assets/expo.icon"
-    },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -36,7 +33,16 @@
           }
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableProguardInReleaseBuilds": true,
+            "shrinkResources": true
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
