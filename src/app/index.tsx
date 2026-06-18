@@ -102,6 +102,9 @@ const TaskCard = memo(({ item, onCopy, onDelete }: {
         <Text style={styles.taskTitle}>
           {item.title}{item.time ? ` · ${item.time}` : ''}
         </Text>
+        {item.createdAt && (
+          <Text style={styles.taskCreatedAt}>Created at {item.createdAt}</Text>
+        )}
         <Text style={styles.taskDesc} numberOfLines={2}>{item.description}</Text>
       </View>
       <View style={styles.taskActions}>
@@ -127,6 +130,7 @@ export default function App() {
   const [isModalVisible, setModalVisible] = useState(false);
   const [customTitle, setCustomTitle] = useState('');
   const [customDesc, setCustomDesc] = useState('');
+  const [createdTime, setCreatedTime] = useState(new Date().toLocaleTimeString());  
   const [customTime, setCustomTime] = useState(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [scheduleType, setScheduleType] = useState<'daily' | 'once' | 'interval'>('daily');
@@ -233,7 +237,14 @@ export default function App() {
         trigger,
       });
 
-      const newTask = { id, title: customTitle, description: desc, time, type: `custom_${Date.now()}` };
+      const newTask = { 
+        id, 
+        title: customTitle, 
+        description: desc, 
+        time, 
+        type: `custom_${Date.now()}`,
+        createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
       const stored = await AsyncStorage.getItem('@active_tasks');
       const current = stored ? JSON.parse(stored) : [];
 
@@ -250,6 +261,7 @@ export default function App() {
       setCustomTitle('');
       setCustomDesc('');
       setCustomTime(new Date());
+      setCreatedTime(new Date().toLocaleTimeString());
       setScheduleType('daily');
       setIntervalMinutes('1');
     } catch {
@@ -499,6 +511,7 @@ const styles = StyleSheet.create({
   },
   taskInfo: { flex: 1, paddingRight: 10 },
   taskTitle: { fontSize: isSmall ? 14 : 15, fontWeight: '700', color: '#09090b', marginBottom: 3 },
+  taskCreatedAt: { fontSize: 11, color: '#a1a1aa', marginBottom: 4, fontStyle: 'italic', fontWeight: '500' },
   taskDesc: { fontSize: 13, color: '#71717a', fontWeight: '400' },
   taskActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   copyBtn: {
