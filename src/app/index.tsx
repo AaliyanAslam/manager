@@ -69,6 +69,8 @@ export default function App() {
   const [customDesc, setCustomDesc] = useState('');
   const [customTime, setCustomTime] = useState(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [scheduleType, setScheduleType] = useState<'daily' | 'once' | 'interval'>('daily');
+  const [intervalMinutes, setIntervalMinutes] = useState('1');
 
   // Helper to format Date into hh:mm AM/PM reliably across iOS/Android
   const formatTime = (date: Date) => {
@@ -166,9 +168,49 @@ export default function App() {
       return;
     }
 
-    const hour = customTime.getHours();
-    const minute = customTime.getMinutes();
-    const formattedTimeStr = formatTime(customTime);
+    let trigger: any;
+    let descriptionText = '';
+    let timeText = '';
+
+    if (scheduleType === 'interval') {
+      const mins = parseInt(intervalMinutes, 10);
+      if (isNaN(mins) || mins < 1) {
+        Alert.alert('Validation Error', 'Please provide a valid interval in minutes.');
+        return;
+      }
+      trigger = {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: mins * 60,
+        repeats: true,
+      };
+      descriptionText = customDesc || `Repeats every ${mins} minute(s)`;
+      timeText = `Every ${mins}m`;
+    } else {
+      const hour = customTime.getHours();
+      const minute = customTime.getMinutes();
+      const formattedTimeStr = formatTime(customTime);
+      timeText = formattedTimeStr;
+
+      if (scheduleType === 'daily') {
+        trigger = {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
+          hour,
+          minute,
+        };
+        descriptionText = customDesc || `Daily at ${formattedTimeStr}`;
+      } else {
+        const now = new Date();
+        const scheduledDate = new Date();
+        scheduledDate.setHours(hour, minute, 0, 0);
+        if (scheduledDate <= now) {
+          scheduledDate.setDate(scheduledDate.getDate() + 1);
+        }
+        trigger = {
+          date: scheduledDate,
+        };
+        descriptionText = customDesc || `Once at ${formattedTimeStr}`;
+      }
+    }
 
     try {
       const identifier = await Notifications.scheduleNotificationAsync({
@@ -177,18 +219,14 @@ export default function App() {
           body: customDesc || "Custom reminder",
           data: { type: 'custom', draftText: customDesc },
         },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.DAILY,
-          hour,
-          minute,
-        },
+        trigger,
       });
 
       await saveTaskToStorage({
         id: identifier,
         title: customTitle,
-        description: customDesc || `Daily at ${formattedTimeStr}`,
-        time: formattedTimeStr,
+        description: descriptionText,
+        time: timeText,
         type: `custom_${Date.now()}`,
       });
 
@@ -196,6 +234,8 @@ export default function App() {
       setCustomTitle('');
       setCustomDesc('');
       setCustomTime(new Date());
+      setScheduleType('daily');
+      setIntervalMinutes('1');
     } catch (error) {
       Alert.alert("Error", "Failed to schedule task.");
     }
@@ -294,38 +334,69 @@ export default function App() {
                 placeholderTextColor="#a1a1aa"
               />
 
-              <Text style={styles.inputLabel}>Time</Text>
-              {Platform.OS === 'ios' ? (
-                <DateTimePicker
-                  value={customTime}
-                  mode="time"
-                  display="spinner"
-                  onChange={(e, d) => d && setCustomTime(d)}
-                  style={{ height: 120, alignSelf: 'flex-start' }}
-                />
-              ) : (
-                <>
+              <Text style={styles.inputLabel}>Reminder Type</Text>
+              <View style={styles.typeSelectorContainer}>
+                {['daily', 'once', 'interval'].map((type) => (
                   <TouchableOpacity 
-                    style={[styles.input, { justifyContent: 'center', height: 48 }]} 
-                    onPress={() => setShowTimePicker(true)}
+                    key={type}
+                    style={[styles.typeButton, scheduleType === type && styles.typeButtonActive]}
+                    onPress={() => setScheduleType(type as any)}
                   >
-                    <Text style={{ fontSize: 15, color: '#09090b' }}>
-                      {formatTime(customTime)}
+                    <Text style={[styles.typeButtonText, scheduleType === type && styles.typeButtonTextActive]}>
+                      {type === 'daily' ? 'Daily' : type === 'once' ? 'Once' : 'Interval'}
                     </Text>
                   </TouchableOpacity>
-                  {showTimePicker && (
+                ))}
+              </View>
+
+              {scheduleType === 'interval' ? (
+                <>
+                  <Text style={styles.inputLabel}>Repeat Every (Minutes)</Text>
+                  <TextInput 
+                    style={styles.input} 
+                    placeholder="e.g. 5" 
+                    value={intervalMinutes} 
+                    onChangeText={setIntervalMinutes} 
+                    keyboardType="numeric"
+                    placeholderTextColor="#a1a1aa"
+                  />
+                </>
+              ) : (
+                <>
+                  <Text style={styles.inputLabel}>Time</Text>
+                  {Platform.OS === 'ios' ? (
                     <DateTimePicker
                       value={customTime}
                       mode="time"
-                      is24Hour={false}
-                      display="default"
-                      onChange={(event, selectedDate) => {
-                        setShowTimePicker(false);
-                        if (event.type === 'set' && selectedDate) {
-                          setCustomTime(selectedDate);
-                        }
-                      }}
+                      display="spinner"
+                      onChange={(e, d) => d && setCustomTime(d)}
+                      style={{ height: 120, alignSelf: 'flex-start' }}
                     />
+                  ) : (
+                    <>
+                      <TouchableOpacity 
+                        style={[styles.input, { justifyContent: 'center', height: 48 }]} 
+                        onPress={() => setShowTimePicker(true)}
+                      >
+                        <Text style={{ fontSize: 15, color: '#09090b' }}>
+                          {formatTime(customTime)}
+                        </Text>
+                      </TouchableOpacity>
+                      {showTimePicker && (
+                        <DateTimePicker
+                          value={customTime}
+                          mode="time"
+                          is24Hour={false}
+                          display="default"
+                          onChange={(event, selectedDate) => {
+                            setShowTimePicker(false);
+                            if (event.type === 'set' && selectedDate) {
+                              setCustomTime(selectedDate);
+                            }
+                          }}
+                        />
+                      )}
+                    </>
                   )}
                 </>
               )}
@@ -599,5 +670,32 @@ const styles = StyleSheet.create({
     color: '#fafafa',
     fontWeight: '600',
     fontSize: 15,
+  },
+  typeSelectorContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  typeButton: {
+    flex: 1,
+    paddingVertical: 10,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e4e4e7',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  typeButtonActive: {
+    backgroundColor: '#09090b',
+    borderColor: '#09090b',
+  },
+  typeButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#71717a',
+  },
+  typeButtonTextActive: {
+    color: '#fafafa',
   }
 });
